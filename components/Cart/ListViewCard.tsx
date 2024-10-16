@@ -41,24 +41,34 @@ function ListViewCard({ cartListingItems, setCartListingItems, addToCartItem, Re
   }, []);
 
   const debouncedUpdateCart = useMemo(() => {
+    // return (updatedList:any)=>handleUpdateCart(updatedList)
     return debounce(handleUpdateCart, 2000);
   }, [handleUpdateCart]);
 
-  const handleQtyChange = (item_code: string, value: string) => {
-    const newQty = Number(value);
-    const updatedItems = cartListingItems?.categories?.map((category: any) => ({
-      ...category,
-      orders: category.orders.map((item: any) => {
-        if (item.item_code === item_code) {
-          return { ...item, qty: newQty };
-        }
-        return item;
-      }),
-    }));
-    setCartListingItems((prevItems: any) => ({ ...prevItems, categories: updatedItems }));
-    setUpdatedCartList([{ item_code, quantity: newQty }]);
+  useEffect(() => {
     debouncedUpdateCart(updatedCartList);
+  }, [updatedCartList]);
+
+  const handleQtyChange = (item_code: string, value: string) => {
+    const regexp = /^[0-9\b]+$/;
+    if (value === '' || regexp.test(value)) {
+      const newQty = Number(value);
+      const updatedItems = cartListingItems?.categories?.map((category: any) => ({
+        ...category,
+        orders: category.orders.map((item: any) => {
+          if (item.item_code === item_code) {
+            return { ...item, qty: newQty };
+          }
+          return item;
+        }),
+      }));
+      setCartListingItems((prevItems: any) => ({ ...prevItems, categories: updatedItems }));
+      setUpdatedCartList([{ item_code, quantity: newQty }]);
+      // console.log(updatedCartList, '1');
+      // debouncedUpdateCart(updatedCartList);
+    }
   };
+
   useEffect(() => {
     if (cartListingItems?.categories?.length > 0) {
       const firstCategory = cartListingItems.categories[0];
@@ -96,51 +106,69 @@ function ListViewCard({ cartListingItems, setCartListingItems, addToCartItem, Re
               </div>
               <div className="col-lg-12 col-md-6">
                 {category?.orders?.length > 0 &&
-                  category?.orders?.map((item: any, index: number) => (
-                    <div className="row mt-3 ms-2" key={index}>
-                      <div className="col-lg-2 col-md-12">
-                        {item?.image_url ? (
-                          <Image
-                            src={item?.image_url}
-                            alt="product image"
-                            width={400}
-                            height={400}
-                            loader={imageLoader}
-                            className={cartStyles.cart_image}
+                  category?.orders?.map((item: any, index: number) => {
+                    const [minQtyWarnig, setQtyWarning] = useState('');
+                    const [qtyValue, setQtyValue] = useState(item?.qty || 1);
+                    return (
+                      <div className="row mt-3 ms-2" key={index}>
+                        <div className="col-lg-2 col-md-12">
+                          {item?.image_url ? (
+                            <Image
+                              src={item?.image_url}
+                              alt="product image"
+                              width={400}
+                              height={400}
+                              loader={imageLoader}
+                              className={cartStyles.cart_image}
+                            />
+                          ) : (
+                            <Image src={NoImage} alt="product image" width={150} height={150} />
+                          )}
+                        </div>
+                        <div className="col-lg-7 col-md-12">
+                          {item?.item_name} <br />
+                          <b>
+                            {selectedMultiLangData?.item_code} : {item?.item_code}
+                          </b>
+                          <div>
+                            <button
+                              className="btn btn-link text-decoration-none p-0 fs-14"
+                              onClick={() => handleDeleteItem(item?.item_code)}
+                            >
+                              {selectedMultiLangData?.delete}
+                            </button>
+                          </div>
+                        </div>
+                        <div className="col-lg-1 col-md-12">
+                          {item?.currency_symbol}
+                          {item?.amount}
+                        </div>
+                        <div className="col-lg-1 col-md-12">
+                          <input
+                            type="text"
+                            value={qtyValue}
+                            className="w-100 text-center border"
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              if (value < item?.min_order_qty) {
+                                setQtyValue(value);
+                                return setQtyWarning(`MIN QTY ${item?.min_order_qty} `);
+                              } else {
+                                handleQtyChange(item?.item_code, e.target.value);
+                                setQtyValue(value);
+                                setQtyWarning('');
+                              }
+                            }}
                           />
-                        ) : (
-                          <Image src={NoImage} alt="product image" width={150} height={150} />
-                        )}
-                      </div>
-                      <div className="col-lg-7 col-md-12">
-                        {item?.item_name} <br />
-                        <b>
-                          {selectedMultiLangData?.item_code} : {item?.item_code}
-                        </b>
-                        <div>
-                          <button className="btn btn-link text-decoration-none p-0 fs-14" onClick={() => handleDeleteItem(item?.item_code)}>
-                            {selectedMultiLangData?.delete}
-                          </button>
+                          {minQtyWarnig && <span className="text-danger">{minQtyWarnig}</span>}
+                        </div>
+                        <div className="col-lg-1 col-md-12">
+                          {item?.currency_symbol}
+                          {item?.amount}
                         </div>
                       </div>
-                      <div className="col-lg-1 col-md-12">
-                        {item?.currency_symbol}
-                        {item?.amount}
-                      </div>
-                      <div className="col-lg-1 col-md-12">
-                        <input
-                          type="number"
-                          value={item?.qty}
-                          className="w-100 text-center border"
-                          onChange={(e) => handleQtyChange(item?.item_code, e.target.value)}
-                        />
-                      </div>
-                      <div className="col-lg-1 col-md-12">
-                        {item?.currency_symbol}
-                        {item?.amount}
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
               </div>
             </div>
             {category?.orders?.length > 0 &&
@@ -196,7 +224,7 @@ function ListViewCard({ cartListingItems, setCartListingItems, addToCartItem, Re
                       <div className="col-1">:</div>
                       <div className="col-6">
                         <input
-                          type="number"
+                          type="text"
                           value={item?.qty}
                           className="w-auto text-start border-0"
                           onChange={(e) => handleQtyChange(item?.item_code, e.target.value)}
